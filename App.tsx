@@ -37,86 +37,44 @@ const LABEL_COLORS: Record<string, string> = {
 
 const BUCKET_ORDER: Array<keyof typeof LABEL_COLORS> = ['matchup', 'flow', 'player', 'defense', 'rare', 'meta'];
 
+const SCORE_BORDERS = [
+  colors.scoreBorder1, colors.scoreBorder2, colors.scoreBorder3, colors.scoreBorder4, colors.scoreBorder5,
+  colors.scoreBorder6, colors.scoreBorder7, colors.scoreBorder8, colors.scoreBorder9, colors.scoreBorder10,
+];
+
+const SCORE_EMOJIS: [number, string][] = [[9, '💎'], [7, '⚡️'], [5, '✨'], [3, '🪫'], [0, '💀']];
+
 function excitementDisplay(score?: number, emojiFromApi?: string) {
-  const value = typeof score === 'number' ? score : 0;
+  const value = score ?? 0;
   const bucket = Math.min(10, Math.max(1, Math.floor(value)));
-  const borderMap: Record<number, string> = {
-    1: colors.scoreBorder1,
-    2: colors.scoreBorder2,
-    3: colors.scoreBorder3,
-    4: colors.scoreBorder4,
-    5: colors.scoreBorder5,
-    6: colors.scoreBorder6,
-    7: colors.scoreBorder7,
-    8: colors.scoreBorder8,
-    9: colors.scoreBorder9,
-    10: colors.scoreBorder10,
-  };
-
-  let emoji = emojiFromApi || '✨';
-  if (bucket >= 9) emoji = emojiFromApi || '💎';
-  else if (bucket >= 7) emoji = emojiFromApi || '⚡️';
-  else if (bucket >= 5) emoji = emojiFromApi || '✨';
-  else if (bucket >= 3) emoji = emojiFromApi || '🪫';
-  else emoji = emojiFromApi || '💀';
-
-  return { value, emoji, border: borderMap[bucket] };
+  const emoji = emojiFromApi || SCORE_EMOJIS.find(([threshold]) => bucket >= threshold)?.[1] || '✨';
+  return { value, emoji, border: SCORE_BORDERS[bucket - 1] };
 }
+
+const LABEL_PATTERNS: [RegExp, keyof typeof LABEL_COLORS][] = [
+  [/instant classic|back & forth|down to the wire|nail biter|comeback|high octane|shootout|hot start/i, 'flow'],
+  [/defensive|chaos|brick|free throw/i, 'defense'],
+  [/triple double|scoring explosion|sniper|pickpocket|block party/i, 'player'],
+  [/matchup|bout|tank bowl/i, 'matchup'],
+  [/double ot|triple ot|heartbreaker|marathon|epic/i, 'rare'],
+  [/highlights|blowout|snoozer/i, 'meta'],
+];
 
 function categoryForLabel(label: string): keyof typeof LABEL_COLORS {
-  const l = label.toLowerCase();
-  if (
-    l.includes('instant classic') ||
-    l.includes('back & forth') ||
-    l.includes('down to the wire') ||
-    l.includes('nail biter') ||
-    l.includes('4th quarter comeback') ||
-    l.includes('high octane') ||
-    l.includes('3-point shootout') ||
-    l.includes('first quarter fireworks')
-  ) {
-    return 'flow';
-  }
-  if (
-    l.includes('defensive slugfest') ||
-    l.includes('chaos ball') ||
-    l.includes('brick fest') ||
-    l.includes('free throw parade') ||
-    l.includes('free throw desert')
-  ) {
-    return 'defense';
-  }
-  if (
-    l.includes('triple double') ||
-    l.includes('scoring explosion') ||
-    l.includes('sniper game') ||
-    l.includes('pickpocket') ||
-    l.includes('block party')
-  ) {
-    return 'player';
-  }
-  if (l.includes('matchup') || l.includes('bout') || l.includes('tank bowl')) {
-    return 'matchup';
-  }
-  if (l.includes('double ot') || l.includes('triple ot') || l.includes('heartbreaker') || l.includes('marathon') || l.includes('epic')) {
-    return 'rare';
-  }
-  if (l.includes('consider highlights') || l.includes('blowout alert')) return 'meta';
-  return 'flow'; // Ensure the return statement is clear
+  return LABEL_PATTERNS.find(([pattern]) => pattern.test(label))?.[1] || 'flow';
 }
 
+const LABEL_DISPLAY: Record<string, string> = {
+  'no special indicators': '💤 Snoozer',
+  'first quarter fireworks': '🔥 Hot Start',
+};
+
 const LabelChip = ({ label }: { label: string }) => {
-  const category = categoryForLabel(label);
-  const bg = label === 'No special indicators' ? colors.accentMeta : LABEL_COLORS[category] || colors.chipBg;
-  const normalized = label.toLowerCase();
-  const text =
-    label === 'No special indicators'
-      ? '💤 Snoozer'
-      : normalized === 'first quarter fireworks'
-      ? '🔥 Hot Start'
-      : label;
+  const text = LABEL_DISPLAY[label.toLowerCase()] || label;
+  const category = categoryForLabel(text);
+  const bg = LABEL_COLORS[category] || colors.chipBg;
   return (
-    <View style={[styles.chip, { backgroundColor: bg }]}> 
+    <View style={[styles.chip, { backgroundColor: bg }]}>
       <Text style={styles.chipText}>{text}</Text>
     </View>
   );
