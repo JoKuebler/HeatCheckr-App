@@ -66,7 +66,7 @@ const SCORE_EMOJIS: [number, string][] = [
   [6.5, '✨'],  // Sparkles - pretty good
   [5.5, '👀'],  // Eyes - watchable
   [4.5, '🫤'],  // Meh face - mid
-  [3.5, '😴'],  // Sleepy - snoozer
+  [3.5, '🗑️'],  // Garbage Time - low-event game
   [2.5, '🪫'],  // Low battery - draining
   [1.5, '💤'],  // Zzz - skip it
   [0, '💀'],    // Skull - unwatchable
@@ -86,7 +86,7 @@ const LABEL_PATTERNS: [RegExp, keyof typeof LABEL_COLORS][] = [
   [/triple double|scoring explosion|sniper|pickpocket|block party/i, 'player'],
   [/defensive|chaos|brick|free throw parade/i, 'defense'],
   [/double ot|triple ot|heartbreaker|marathon|epic|free flowing/i, 'rare'],
-  [/easy win|blowout|snoozer/i, 'meta'],
+  [/easy win|blowout|snoozer|garbage time/i, 'meta'],
 ];
 
 function categoryForLabel(label: string): keyof typeof LABEL_COLORS {
@@ -94,7 +94,7 @@ function categoryForLabel(label: string): keyof typeof LABEL_COLORS {
 }
 
 const LABEL_DISPLAY: Record<string, string> = {
-  'no special indicators': '💤 Snoozer',
+  'no special indicators': '🗑️ Garbage Time',
 };
 
 const LabelChip = ({ label }: { label: string }) => {
