@@ -213,6 +213,7 @@ const SettingsModal = ({
 const GameCard = ({ game, onOpenHighlights, groupSettings }: { game: Game; onOpenHighlights: (game: Game) => void; groupSettings: GroupSettings }) => {
   const home = game.home_team;
   const away = game.away_team;
+  const isPending = game.status === 'pending';
   const excitement = excitementDisplay(game.excitement_score, game.excitement_emoji);
 
   // Filter labels based on group settings
@@ -221,8 +222,15 @@ const GameCard = ({ game, onOpenHighlights, groupSettings }: { game: Game; onOpe
     return groupSettings[category];
   });
 
+  // Don't make pending games clickable for highlights
+  const handlePress = () => {
+    if (!isPending) {
+      onOpenHighlights(game);
+    }
+  };
+
   return (
-    <Pressable style={styles.card} onPress={() => onOpenHighlights(game)}>
+    <Pressable style={[styles.card, isPending && styles.cardPending]} onPress={handlePress}>
       <View style={styles.row}>
         <View style={styles.teamRow}>
           <TeamBadge abbreviation={away.abbreviation} />
@@ -233,12 +241,19 @@ const GameCard = ({ game, onOpenHighlights, groupSettings }: { game: Game; onOpe
         </View>
       </View>
       <View style={styles.metaRow}>
-        <View style={[styles.excitementPill, { borderColor: excitement.border }]}>
-          <Text style={[styles.excitementText, { color: excitement.border }]}>{excitement.emoji}</Text>
-          <Text style={styles.excitementText}>{excitement.value.toFixed(1)}</Text>
-        </View>
+        {isPending ? (
+          <View style={[styles.excitementPill, styles.pendingPill]}>
+            <Text style={styles.pendingText}>⏳</Text>
+            <Text style={styles.pendingText}>{game.status_text || 'Pending'}</Text>
+          </View>
+        ) : (
+          <View style={[styles.excitementPill, { borderColor: excitement.border }]}>
+            <Text style={[styles.excitementText, { color: excitement.border }]}>{excitement.emoji}</Text>
+            <Text style={styles.excitementText}>{excitement.value.toFixed(1)}</Text>
+          </View>
+        )}
       </View>
-      {visibleLabels.length > 0 && (
+      {!isPending && visibleLabels.length > 0 && (
         <View style={styles.labelsWrap}>
           {[...visibleLabels]
             .sort((a, b) => {
@@ -473,6 +488,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  cardPending: {
+    opacity: 0.7,
+    borderStyle: 'dashed',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -615,6 +634,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '800',
     fontSize: fonts.subtitle,
+    textAlign: 'center',
+  },
+  pendingPill: {
+    borderColor: colors.textSecondary,
+    borderStyle: 'dashed',
+  },
+  pendingText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: fonts.body,
     textAlign: 'center',
   },
   headerTitleRow: {

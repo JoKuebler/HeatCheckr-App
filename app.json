@@ -2,26 +2,30 @@
   "expo": {
     "name": "Heatcheck",
     "slug": "heatcheck",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/images/icon.png",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0f1419"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.jdkdevelopment.heatcheck",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0f1419"
+      },
       "package": "com.jdkdevelopment.heatcheck"
     },
     "extra": {

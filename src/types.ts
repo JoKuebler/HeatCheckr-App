@@ -11,6 +11,8 @@ export type Game = {
   labels: string[];
   excitement_score?: number;
   excitement_emoji?: string;
+  status?: 'pending' | 'completed';
+  status_text?: string;
 };
 
 export type GamesResponse = {
