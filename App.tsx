@@ -118,6 +118,8 @@ const TeamBadge = ({ abbreviation }: { abbreviation: string }) => {
   );
 };
 
+const TIP_JAR_URL = 'https://buymeacoffee.com/jdkdevelopment';
+
 const SettingsModal = ({ 
   visible, 
   onClose, 
@@ -129,6 +131,20 @@ const SettingsModal = ({
   settings: GroupSettings;
   onToggle: (key: GroupKey) => void;
 }) => {
+  const openTipJar = () => {
+    Linking.openURL(TIP_JAR_URL).catch(() => {
+      // Silently fail if can't open URL
+    });
+  };
+
+  const openPrivacy = () => {
+    Linking.openURL('https://app-production-2fb0.up.railway.app/privacy').catch(() => {});
+  };
+
+  const openTerms = () => {
+    Linking.openURL('https://app-production-2fb0.up.railway.app/terms').catch(() => {});
+  };
+
   return (
     <Modal
       visible={visible}
@@ -163,8 +179,30 @@ const SettingsModal = ({
             </View>
           ))}
           
+          {/* Tip Jar Section */}
+          <View style={styles.tipSection}>
+            <Pressable style={styles.tipButton} onPress={openTipJar}>
+              <Text style={styles.tipEmoji}>🥤</Text>
+              <View style={styles.tipTextWrap}>
+                <Text style={styles.tipTitle}>Buy the Dev a Gatorade</Text>
+                <Text style={styles.tipSubtitle}>Support the project!</Text>
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Legal Links */}
+          <View style={styles.legalSection}>
+            <Pressable onPress={openPrivacy}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </Pressable>
+            <Text style={styles.legalDivider}>•</Text>
+            <Pressable onPress={openTerms}>
+              <Text style={styles.legalLink}>Terms of Service</Text>
+            </Pressable>
+          </View>
+          
           <View style={styles.modalFooter}>
-            <Text style={styles.footerText}>Hidden labels won't appear on game cards</Text>
+            <Text style={styles.footerText}>Made with 🏀 for fans who watch games on delay</Text>
           </View>
         </View>
       </View>
@@ -378,12 +416,16 @@ export default function App() {
               gamesDate ? (
                 <View style={styles.headerRow}>
                   <View style={styles.headerTitleRow}>
-                    <View>
+                    <View style={styles.headerTitleLeft}>
                       <Text style={styles.headerKicker}>Previous night</Text>
                       <Text style={styles.headerText}>{formatDate(gamesDate)}</Text>
                     </View>
                     <Pressable onPress={() => setSettingsVisible(true)} style={styles.settingsButton}>
-                      <Text style={styles.settingsButtonText}>⚙️</Text>
+                      <View style={styles.settingsIcon}>
+                        <View style={styles.settingsBar} />
+                        <View style={styles.settingsBar} />
+                        <View style={styles.settingsBar} />
+                      </View>
                     </Pressable>
                   </View>
                 </View>
@@ -578,13 +620,23 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  headerTitleLeft: {
+    flex: 1,
   },
   settingsButton: {
-    padding: spacing.xs,
+    padding: spacing.sm,
   },
-  settingsButtonText: {
-    fontSize: 22,
+  settingsIcon: {
+    width: 22,
+    height: 18,
+    justifyContent: 'space-between',
+  },
+  settingsBar: {
+    height: 2,
+    backgroundColor: colors.textSecondary,
+    borderRadius: 1,
   },
   modalOverlay: {
     flex: 1,
@@ -654,6 +706,51 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: fonts.body,
     fontWeight: '500',
+  },
+  tipSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  tipEmoji: {
+    fontSize: 28,
+  },
+  tipTextWrap: {
+    flex: 1,
+  },
+  tipTitle: {
+    color: colors.textPrimary,
+    fontSize: fonts.body,
+    fontWeight: '600',
+  },
+  tipSubtitle: {
+    color: colors.textSecondary,
+    fontSize: fonts.label,
+  },
+  legalSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  legalLink: {
+    color: colors.textSecondary,
+    fontSize: fonts.label,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    color: colors.textSecondary,
+    fontSize: fonts.label,
   },
   modalFooter: {
     marginTop: spacing.md,
