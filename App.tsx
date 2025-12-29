@@ -66,9 +66,9 @@ const SCORE_EMOJIS: [number, string][] = [
   [6.5, '✨'],  // Sparkles - pretty good
   [5.5, '👀'],  // Eyes - watchable
   [4.5, '🫤'],  // Meh face - mid
-  [3.5, '🗑️'],  // Garbage Time - low-event game
+  [3.5, '�'],  // Sleepy - snoozer
   [2.5, '🪫'],  // Low battery - draining
-  [1.5, '💤'],  // Zzz - skip it
+  [1.5, '🤮'],  // Vomit - skip it
   [0, '💀'],    // Skull - unwatchable
 ];
 
@@ -86,20 +86,21 @@ const LABEL_PATTERNS: [RegExp, keyof typeof LABEL_COLORS][] = [
   [/triple double|scoring explosion|sniper|pickpocket|block party/i, 'player'],
   [/defensive|chaos|brick|free throw parade/i, 'defense'],
   [/double ot|triple ot|heartbreaker|marathon|epic|free flowing/i, 'rare'],
-  [/easy win|blowout|snoozer|garbage time/i, 'meta'],
+  [/easy win|blowout|garbage time/i, 'meta'],
 ];
 
-function categoryForLabel(label: string): keyof typeof LABEL_COLORS {
-  return LABEL_PATTERNS.find(([pattern]) => pattern.test(label))?.[1] || 'flow';
+function categoryForLabel(label: string): GroupKey {
+  return (LABEL_PATTERNS.find(([pattern]) => pattern.test(label))?.[1] as GroupKey) || 'flow';
 }
 
 const LABEL_DISPLAY: Record<string, string> = {
   'no special indicators': '🗑️ Garbage Time',
+  'garbage time': '🗑️ Garbage Time',
 };
 
 const LabelChip = ({ label }: { label: string }) => {
   const text = LABEL_DISPLAY[label.toLowerCase()] || label;
-  const category = categoryForLabel(text);
+  const category = categoryForLabel(label);
   const bg = LABEL_COLORS[category] || colors.chipBg;
   return (
     <View style={[styles.chip, { backgroundColor: bg }]}>
