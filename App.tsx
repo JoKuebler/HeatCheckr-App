@@ -65,8 +65,8 @@ const SCORE_EMOJIS: [number, string][] = [
   [7.5, '⚡️'],  // Lightning - electric
   [6.5, '✨'],  // Sparkles - pretty good
   [5.5, '👀'],  // Eyes - watchable
-  [4.5, '🫤'],  // Meh face - mid
-  [3.5, '�'],  // Sleepy - snoozer
+  [4.5, '😐'],  // Neutral face - mid
+  [3.5, '😴'],  // Sleepy - snoozer
   [2.5, '🪫'],  // Low battery - draining
   [1.5, '🤮'],  // Vomit - skip it
   [0, '💀'],    // Skull - unwatchable
