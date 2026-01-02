@@ -1,7 +1,5 @@
 # Heatcheck
 
-**Labels:** `spoiler-free` `react-native` `nba` `advanced-stats` `recommendation-engine` `expo`
-
 ## About
 
 A React Native app for next-morning NBA fans: discover the best games to watch on demand, without seeing scores or spoilers. Get personalized, spoil-free recommendations, advanced excitement ratings, and instant highlights—designed for basketball enthusiasts who want the story behind the score.
