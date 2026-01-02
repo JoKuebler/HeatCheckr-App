@@ -19,8 +19,7 @@
       "bundleIdentifier": "com.jdkdevelopment.heatcheck",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "buildNumber": "2"
+      }
     },
     "android": {
       "adaptiveIcon": {
