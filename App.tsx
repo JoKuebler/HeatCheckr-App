@@ -424,6 +424,7 @@ export default function App() {
     [1]: { games: [], date: '' },
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasSeenHighlightWarning, setHasSeenHighlightWarning] = useState<boolean>(false);
@@ -589,6 +590,7 @@ export default function App() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setInitialLoadComplete(true);
     }
   }, []);
 
@@ -847,7 +849,7 @@ export default function App() {
         />
         {/* Sticky Header */}
         {renderHeader()}
-        {loading && Object.keys(gamesCache).length === 0 ? (
+        {!initialLoadComplete ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.textPrimary} />
             <Text style={styles.loadingText}>Loading games...</Text>
