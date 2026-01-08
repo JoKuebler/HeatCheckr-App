@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Pressable, Linking, Alert, Modal, Switch, Animated } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Pressable, Linking, Alert, Modal, Switch, Animated, Dimensions, PanResponder, FlatList } from 'react-native';
 import Svg, { Path, Defs, Text as SvgText, TextPath } from 'react-native-svg';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +31,6 @@ import {
 } from './src/notifications';
 import { 
   AnimatedScorePill, 
-  AnimatedPressable, 
   useAnimatedHeader 
 } from './src/components/AnimatedComponents';
 
@@ -51,6 +50,41 @@ const formatDate = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// Helper to get date string offset from yesterday (Eastern Time)
+const getDateForOffset = (offset: number): string => {
+  // Get current time in Eastern timezone
+  const now = new Date();
+  const etFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const [etYear, etMonth, etDay] = etFormatter.format(now).split('-').map(Number);
+  
+  // Create date object for yesterday ET
+  const yesterdayET = new Date(etYear, etMonth - 1, etDay);
+  yesterdayET.setDate(yesterdayET.getDate() - 1);
+  
+  // Apply offset
+  const targetDate = new Date(yesterdayET);
+  targetDate.setDate(targetDate.getDate() + offset);
+  
+  // Format as YYYY-MM-DD
+  const year = targetDate.getFullYear();
+  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const day = String(targetDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper to determine the kicker text (label above date)
+const getKickerText = (offset: number): string => {
+  if (offset < 0) return 'Past games';
+  if (offset === 0) return 'Previous night';
+  if (offset === 1) return "Tonight's games";
+  return 'Upcoming games';
 };
 
 const LabelChip = ({ label }: { label: string }) => {
@@ -279,7 +313,9 @@ const GameCard = ({ game, onOpenHighlights, groupSettings, isVisible }: { game: 
   const home = game.home_team;
   const away = game.away_team;
   const isPending = game.status === 'pending';
+  const isScheduled = game.status === 'scheduled';
   const excitement = excitementDisplay(game.excitement_score, game.excitement_emoji);
+  const canWatchHighlights = !isPending && !isScheduled;
 
   // Filter labels based on group settings
   const visibleLabels = game.labels.filter((label) => {
@@ -287,18 +323,8 @@ const GameCard = ({ game, onOpenHighlights, groupSettings, isVisible }: { game: 
     return groupSettings[category];
   });
 
-  const handlePress = () => {
-    if (!isPending) {
-      onOpenHighlights(game);
-    }
-  };
-
   return (
-    <AnimatedPressable 
-      onPress={handlePress} 
-      disabled={isPending}
-      style={[styles.card, isPending && styles.cardPending]}
-    >
+    <View style={[styles.card, (isPending || isScheduled) && styles.cardPending]}>
       {/* Arena name at top center */}
       {game.arena && (
         <View style={styles.arenaRow}>
@@ -310,10 +336,26 @@ const GameCard = ({ game, onOpenHighlights, groupSettings, isVisible }: { game: 
         <Text style={styles.vsText}>@</Text>
         <TeamBadge abbreviation={home.abbreviation} name={home.name} confRank={home.conf_rank} />
       </View>
+      {/* Highlights link - subtle, above score */}
+      {canWatchHighlights && (
+        <Pressable 
+          style={styles.highlightsLink}
+          onPress={() => onOpenHighlights(game)}
+          hitSlop={12}
+        >
+          <Text style={styles.highlightsLinkText}>▶︎ Watch Highlights</Text>
+        </Pressable>
+      )}
       <View style={styles.metaRow}>
-        <AnimatedScorePill excitement={excitement} isPending={isPending} isVisible={isVisible} />
+        {isScheduled && game.game_time ? (
+          <View style={styles.gameTimePill}>
+            <Text style={styles.gameTimeText}>🕐 {game.game_time}</Text>
+          </View>
+        ) : (
+          <AnimatedScorePill excitement={excitement} isPending={isPending} isVisible={isVisible} />
+        )}
       </View>
-      {!isPending && visibleLabels.length > 0 && (
+      {!isPending && !isScheduled && visibleLabels.length > 0 && (
         <View style={styles.labelsWrap}>
           {[...visibleLabels]
             .sort((a, b) => {
@@ -326,13 +368,17 @@ const GameCard = ({ game, onOpenHighlights, groupSettings, isVisible }: { game: 
             ))}
         </View>
       )}
-    </AnimatedPressable>
+    </View>
   );
 };
 
 export default function App() {
-  const [games, setGames] = useState<Game[]>([]);
-  const [gamesDate, setGamesDate] = useState<string>('');
+  // Pre-cached data for all 3 days: -1 (day before), 0 (yesterday), +1 (today/future)
+  const [gamesCache, setGamesCache] = useState<Record<number, { games: Game[]; date: string }>>({
+    [-1]: { games: [], date: '' },
+    [0]: { games: [], date: '' },
+    [1]: { games: [], date: '' },
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -341,7 +387,25 @@ export default function App() {
   const [groupSettings, setGroupSettings] = useState<GroupSettings>(DEFAULT_SETTINGS);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
   const [notificationsSupported, setNotificationsSupported] = useState<boolean>(false);
-  const [visibleGameIds, setVisibleGameIds] = useState<Set<string>>(new Set());
+  
+  // Current page index: 0 = yesterday, 1 = today (default), 2 = tomorrow
+  // Maps to offsets: pageIndex 0 = offset -1, pageIndex 1 = offset 0, pageIndex 2 = offset +1
+  const [currentPage, setCurrentPage] = useState<number>(1); // Start at middle (today)
+  const currentPageRef = useRef(currentPage); // Ref to track current page for pan responder
+  const screenWidth = Dimensions.get('window').width;
+  
+  // Animated value for the horizontal scroll position
+  // Value represents the X offset: 0 = page 0, -screenWidth = page 1, -2*screenWidth = page 2
+  const scrollX = useRef(new Animated.Value(-screenWidth)).current; // Start at page 1 (middle)
+  const isAnimating = useRef(false);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+  
+  // Constants
+  const TOTAL_PAGES = 3;
 
   const loadNotificationStatus = async () => {
     try {
@@ -407,8 +471,11 @@ export default function App() {
       const cached = await AsyncStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        setGames(parsed.games || []);
-        setGamesDate(parsed.games_date || '');
+        // Load cached data into the middle slot (offset 0)
+        setGamesCache(prev => ({
+          ...prev,
+          [0]: { games: parsed.games || [], date: parsed.games_date || '' },
+        }));
       }
     } catch (e) {
       // ignore cache errors
@@ -424,24 +491,62 @@ export default function App() {
     }
   };
 
-  const fetchGames = async () => {
-    setError(null);
+  // Fetch a single day's data
+  const fetchSingleDay = async (offset: number): Promise<{ games: Game[]; date: string }> => {
+    const targetDate = getDateForOffset(offset);
+    
     try {
-      const res = await fetch(API_BASE);
+      const url = `${API_BASE}?date=${targetDate}`;
+      
+      const res = await fetch(url);
       if (!res.ok) {
+        if (res.status === 404) {
+          return { games: [], date: targetDate };
+        }
         throw new Error(`HTTP ${res.status}`);
       }
+      
       const data = await res.json();
-      setGames(data.games || []);
-      setGamesDate(data.games_date || '');
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      return { games: data.games || [], date: data.games_date || targetDate };
+    } catch (e) {
+      console.warn(`Failed to fetch day ${offset}:`, e);
+      return { games: [], date: targetDate };
+    }
+  };
+
+  // Fetch all 3 days at once (called on app load and pull-to-refresh)
+  const fetchAllDays = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      // Fetch all 3 days in parallel
+      const [dayMinus1, day0, dayPlus1] = await Promise.all([
+        fetchSingleDay(-1),
+        fetchSingleDay(0),
+        fetchSingleDay(1),
+      ]);
+      
+      const newCache = {
+        [-1]: dayMinus1,
+        [0]: day0,
+        [1]: dayPlus1,
+      };
+      
+      setGamesCache(newCache);
+      
+      // Cache yesterday's data (offset 0) for offline use
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
+        games: day0.games,
+        games_date: day0.date,
+      }));
     } catch (e: any) {
       setError(e?.message || 'Failed to load games');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -449,15 +554,106 @@ export default function App() {
       await loadHighlightWarning();
       await loadSettings();
       await loadNotificationStatus();
-      setLoading(true);
-      await fetchGames();
+      await fetchAllDays();
     })();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchGames();
+    await fetchAllDays();
   };
+
+  // Convert page index to date offset: page 0 = -1, page 1 = 0, page 2 = +1
+  const pageToOffset = (page: number) => page - 1;
+  const offsetToPage = (offset: number) => offset + 1;
+
+  // Navigate to a specific page with smooth animation
+  const animateToPage = useCallback((targetPage: number) => {
+    if (targetPage < 0 || targetPage >= TOTAL_PAGES || isAnimating.current) return;
+    if (targetPage === currentPage) return;
+    
+    isAnimating.current = true;
+    const targetX = -targetPage * screenWidth;
+    
+    Animated.spring(scrollX, {
+      toValue: targetX,
+      useNativeDriver: true,
+      friction: 20,
+      tension: 100,
+    }).start(() => {
+      isAnimating.current = false;
+      setCurrentPage(targetPage);
+    });
+  }, [currentPage, screenWidth, scrollX]);
+
+  const goToPreviousDay = useCallback(() => {
+    animateToPage(currentPage - 1);
+  }, [currentPage, animateToPage]);
+
+  const goToNextDay = useCallback(() => {
+    animateToPage(currentPage + 1);
+  }, [currentPage, animateToPage]);
+
+  // Pan responder for swipe gestures - directly controls scrollX
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (isAnimating.current) return false;
+        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        const hasMinDistance = Math.abs(gestureState.dx) > 10;
+        return isHorizontal && hasMinDistance;
+      },
+      onPanResponderGrant: () => {
+        // Stop any running animation and capture current position
+        scrollX.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Calculate new position based on gesture (use ref for current value)
+        const page = currentPageRef.current;
+        const baseX = -page * screenWidth;
+        let newX = baseX + gestureState.dx;
+        
+        // Add resistance at edges
+        if (newX > 0) {
+          newX = newX * 0.3; // Resistance at left edge
+        } else if (newX < -(TOTAL_PAGES - 1) * screenWidth) {
+          const overscroll = newX + (TOTAL_PAGES - 1) * screenWidth;
+          newX = -(TOTAL_PAGES - 1) * screenWidth + overscroll * 0.3; // Resistance at right edge
+        }
+        
+        scrollX.setValue(newX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const page = currentPageRef.current;
+        const velocity = gestureState.vx;
+        const swipeThreshold = screenWidth * 0.15;
+        
+        let targetPage = page;
+        
+        // Determine target page based on gesture distance and velocity
+        if (gestureState.dx > swipeThreshold || velocity > 0.5) {
+          targetPage = Math.max(0, page - 1);
+        } else if (gestureState.dx < -swipeThreshold || velocity < -0.5) {
+          targetPage = Math.min(TOTAL_PAGES - 1, page + 1);
+        }
+        
+        // Animate to target page
+        const targetX = -targetPage * screenWidth;
+        isAnimating.current = true;
+        
+        Animated.spring(scrollX, {
+          toValue: targetX,
+          useNativeDriver: true,
+          friction: 20,
+          tension: 100,
+          velocity: velocity,
+        }).start(() => {
+          isAnimating.current = false;
+          setCurrentPage(targetPage);
+        });
+      },
+    })
+  ).current;
 
   const openHighlights = (game: Game) => {
     const awaySlug = (game.away_team.abbreviation || '').toLowerCase();
@@ -497,7 +693,17 @@ export default function App() {
     );
   };
 
-  const data = games;
+  // Get current dateOffset from page (page 0 = -1, page 1 = 0, page 2 = +1)
+  const dateOffset = pageToOffset(currentPage);
+
+  // Get data for all 3 pages
+  const page0Data = gamesCache[-1] || { games: [], date: '' };
+  const page1Data = gamesCache[0] || { games: [], date: '' };
+  const page2Data = gamesCache[1] || { games: [], date: '' };
+  
+  // Current page data for header
+  const currentData = gamesCache[dateOffset] || { games: [], date: '' };
+  const gamesDate = currentData.date;
   
   // Filter visible legend items based on settings
   const visibleLegend = LEGEND.filter((item) => groupSettings[item.key as GroupKey]);
@@ -514,7 +720,9 @@ export default function App() {
   
   // Header component rendered outside FlatList for sticky behavior
   const renderHeader = () => {
-    if (!gamesDate) return null;
+    const displayDate = gamesDate || getDateForOffset(dateOffset);
+    const canGoBack = currentPage > 0;
+    const canGoForward = currentPage < TOTAL_PAGES - 1;
     return (
       <Animated.View style={[
         styles.stickyHeader,
@@ -524,7 +732,20 @@ export default function App() {
         }
       ]}>
         <View style={styles.headerTitleRow}>
-          <View style={styles.headerTitleLeft}>
+          {/* Left arrow - previous day */}
+          <Pressable 
+            onPress={goToPreviousDay} 
+            style={styles.navArrow} 
+            hitSlop={8}
+            disabled={!canGoBack}
+          >
+            <Text style={[
+              styles.navArrowText, 
+              !canGoBack && styles.navArrowDisabled
+            ]}>‹</Text>
+          </Pressable>
+          
+          <View style={styles.headerTitleCenter}>
             <Animated.Text style={[
               styles.headerKicker, 
               { 
@@ -532,15 +753,29 @@ export default function App() {
                 height: kickerHeight,
               }
             ]}>
-              Previous night
+              {getKickerText(dateOffset)}
             </Animated.Text>
             <Animated.Text style={[
               styles.headerText, 
               { fontSize: titleFontSize }
             ]}>
-              {formatDate(gamesDate)}
+              {formatDate(displayDate)}
             </Animated.Text>
           </View>
+          
+          {/* Right arrow - next day */}
+          <Pressable 
+            onPress={goToNextDay} 
+            style={styles.navArrow} 
+            hitSlop={8}
+            disabled={!canGoForward}
+          >
+            <Text style={[
+              styles.navArrowText,
+              !canGoForward && styles.navArrowDisabled
+            ]}>›</Text>
+          </Pressable>
+          
           <Pressable onPress={() => setSettingsVisible(true)} style={styles.settingsButton}>
             <View style={styles.settingsIcon}>
               <View style={styles.settingsBar} />
@@ -552,20 +787,6 @@ export default function App() {
       </Animated.View>
     );
   };
-
-  // Track which game cards are visible on screen
-  const onViewableItemsChanged = React.useRef(({ viewableItems }: { viewableItems: Array<{ item: Game; isViewable: boolean }> }) => {
-    const newVisibleIds = new Set(viewableItems.filter(v => v.isViewable).map(v => v.item.game_id));
-    setVisibleGameIds(prev => {
-      // Merge with previous to keep track of all items that have been visible
-      const merged = new Set([...prev, ...newVisibleIds]);
-      return merged;
-    });
-  }).current;
-
-  const viewabilityConfig = React.useRef({
-    itemVisiblePercentThreshold: 50, // Item is considered visible when 50% is shown
-  }).current;
   
   return (
     <SafeAreaProvider>
@@ -582,46 +803,127 @@ export default function App() {
         />
         {/* Sticky Header */}
         {renderHeader()}
-        {loading && data.length === 0 ? (
+        {loading && Object.keys(gamesCache).length === 0 ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.textPrimary} />
             <Text style={styles.loadingText}>Loading games...</Text>
           </View>
         ) : (
-          <Animated.FlatList
-            data={data}
-            keyExtractor={(item) => item.game_id}
-            contentContainerStyle={styles.list}
-            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-            renderItem={({ item }) => (
-              <GameCard 
-                game={item} 
-                onOpenHighlights={openHighlights} 
-                groupSettings={groupSettings} 
-                isVisible={visibleGameIds.has(item.game_id)}
-              />
-            )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            ListEmptyComponent={
-              <View style={styles.center}>
-                <Text style={styles.loadingText}>{error || 'No games found'}</Text>
+          <View style={{ flex: 1, overflow: 'hidden' }} {...panResponder.panHandlers}>
+            <Animated.View 
+              style={{ 
+                flex: 1, 
+                flexDirection: 'row', 
+                width: screenWidth * TOTAL_PAGES,
+                transform: [{ translateX: scrollX }] 
+              }}
+            >
+              {/* Page 0: Yesterday (offset -1) */}
+              <View style={{ width: screenWidth }}>
+                <FlatList<Game>
+                  data={page0Data.games}
+                  keyExtractor={(item) => item.game_id}
+                  contentContainerStyle={styles.list}
+                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                  renderItem={({ item }) => (
+                    <GameCard 
+                      game={item} 
+                      onOpenHighlights={openHighlights} 
+                      groupSettings={groupSettings} 
+                      isVisible={true}
+                    />
+                  )}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
+                  onScroll={currentPage === 0 ? onScroll : undefined}
+                  scrollEventThrottle={16}
+                  ListEmptyComponent={
+                    <View style={styles.center}>
+                      <Text style={styles.loadingText}>No games found</Text>
+                    </View>
+                  }
+                  ListFooterComponent={
+                    <View style={styles.legendWrap}>
+                      {visibleLegend.map((item) => (
+                        <View key={item.name} style={styles.legendRow}>
+                          <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+                          <Text style={styles.legendName}>{item.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  }
+                />
               </View>
-            }
-            ListFooterComponent={
-              <View style={styles.legendWrap}>
-                {visibleLegend.map((item) => (
-                  <View key={item.name} style={styles.legendRow}>
-                    <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-                    <Text style={styles.legendName}>{item.name}</Text>
-                  </View>
-                ))}
+              
+              {/* Page 1: Today (offset 0) */}
+              <View style={{ width: screenWidth }}>
+                <FlatList<Game>
+                  data={page1Data.games}
+                  keyExtractor={(item) => item.game_id}
+                  contentContainerStyle={styles.list}
+                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                  renderItem={({ item }) => (
+                    <GameCard 
+                      game={item} 
+                      onOpenHighlights={openHighlights} 
+                      groupSettings={groupSettings} 
+                      isVisible={true}
+                    />
+                  )}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
+                  onScroll={currentPage === 1 ? onScroll : undefined}
+                  scrollEventThrottle={16}
+                  ListEmptyComponent={
+                    <View style={styles.center}>
+                      <Text style={styles.loadingText}>{error || 'No games found'}</Text>
+                    </View>
+                  }
+                  ListFooterComponent={
+                    <View style={styles.legendWrap}>
+                      {visibleLegend.map((item) => (
+                        <View key={item.name} style={styles.legendRow}>
+                          <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+                          <Text style={styles.legendName}>{item.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  }
+                />
               </View>
-            }
-          />
+              
+              {/* Page 2: Tomorrow (offset +1) */}
+              <View style={{ width: screenWidth }}>
+                <FlatList<Game>
+                  data={page2Data.games}
+                  keyExtractor={(item) => item.game_id}
+                  contentContainerStyle={styles.list}
+                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                  renderItem={({ item }) => (
+                    <GameCard 
+                      game={item} 
+                      onOpenHighlights={openHighlights} 
+                      groupSettings={groupSettings} 
+                      isVisible={true}
+                    />
+                  )}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
+                  onScroll={currentPage === 2 ? onScroll : undefined}
+                  scrollEventThrottle={16}
+                  ListEmptyComponent={
+                    <View style={styles.center}>
+                      <Text style={styles.loadingText}>No scheduled games</Text>
+                    </View>
+                  }
+                  ListFooterComponent={
+                    <View style={styles.legendWrap}>
+                      <Text style={styles.futureGamesHint}>
+                        Swipe left for tomorrow • Swipe right for yesterday
+                      </Text>
+                    </View>
+                  }
+                />
+              </View>
+            </Animated.View>
+          </View>
         )}
         {error && !loading && (
           <View style={styles.errorBar}>
@@ -974,5 +1276,56 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  // Date navigation styles
+  navArrow: {
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  navArrowText: {
+    color: colors.textPrimary,
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 36,
+  },
+  headerTitleCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  // Game time pill for scheduled games
+  gameTimePill: {
+    backgroundColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  gameTimeText: {
+    color: colors.textPrimary,
+    fontSize: fonts.body,
+    fontWeight: '600',
+  },
+  futureGamesHint: {
+    color: colors.textSecondary,
+    fontSize: fonts.label,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  navArrowDisabled: {
+    opacity: 0.2,
+  },
+  // Highlights link - subtle text style
+  highlightsLink: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  highlightsLinkText: {
+    color: colors.textSecondary,
+    fontSize: fonts.label,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });

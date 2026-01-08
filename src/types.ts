@@ -12,9 +12,10 @@ export type Game = {
   labels: string[];
   excitement_score?: number;
   excitement_emoji?: string;
-  status?: 'pending' | 'completed';
+  status?: 'pending' | 'completed' | 'scheduled';
   status_text?: string;
   arena?: string;
+  game_time?: string; // For scheduled games: "7:00 PM ET"
 };
 
 export type GamesResponse = {
