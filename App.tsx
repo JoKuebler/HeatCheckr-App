@@ -634,8 +634,8 @@ export default function App() {
     Animated.spring(scrollX, {
       toValue: targetX,
       useNativeDriver: true,
-      friction: 20,
-      tension: 100,
+      friction: 12, // Balanced friction for less bounce
+      tension: 180, // Higher tension for snappier response
     }).start(() => {
       isAnimating.current = false;
       setCurrentPage(targetPage);
@@ -655,9 +655,16 @@ export default function App() {
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
         if (isAnimating.current) return false;
-        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-        const hasMinDistance = Math.abs(gestureState.dx) > 10;
+        // More aggressive horizontal detection and lower threshold for better responsiveness
+        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
+        const hasMinDistance = Math.abs(gestureState.dx) > 5;
         return isHorizontal && hasMinDistance;
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        // Capture horizontal gestures more aggressively
+        const isStrongHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 3;
+        const hasSignificantDistance = Math.abs(gestureState.dx) > 15;
+        return isStrongHorizontal && hasSignificantDistance;
       },
       onPanResponderGrant: () => {
         // Stop any running animation and capture current position
@@ -682,16 +689,19 @@ export default function App() {
       onPanResponderRelease: (_, gestureState) => {
         const page = currentPageRef.current;
         const velocity = gestureState.vx;
-        const swipeThreshold = screenWidth * 0.15;
+        const swipeThreshold = screenWidth * 0.12; // Lower threshold for easier swiping
         
         let targetPage = page;
         
-        // Determine target page based on gesture distance and velocity
-        if (gestureState.dx > swipeThreshold || velocity > 0.5) {
+        // Determine target page based on gesture distance and velocity (more sensitive)
+        if (gestureState.dx > swipeThreshold || velocity > 0.3) {
           targetPage = Math.max(0, page - 1);
-        } else if (gestureState.dx < -swipeThreshold || velocity < -0.5) {
+        } else if (gestureState.dx < -swipeThreshold || velocity < -0.3) {
           targetPage = Math.min(TOTAL_PAGES - 1, page + 1);
         }
+        
+        // Update page state immediately for responsive header updates
+        setCurrentPage(targetPage);
         
         // Animate to target page
         const targetX = -targetPage * screenWidth;
@@ -700,12 +710,11 @@ export default function App() {
         Animated.spring(scrollX, {
           toValue: targetX,
           useNativeDriver: true,
-          friction: 20,
-          tension: 100,
-          velocity: velocity,
+          friction: 12, // Balanced friction for less bounce
+          tension: 180, // Higher tension for snappier response
+          velocity: velocity * 1.2, // Amplify velocity for more responsive feel
         }).start(() => {
           isAnimating.current = false;
-          setCurrentPage(targetPage);
         });
       },
     })
