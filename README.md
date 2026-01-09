@@ -1,12 +1,13 @@
-# HeatCheckr
 
-## About
+# 🏀 HeatCheckr 
 
+## ℹ️ About
 
 HeatCheckr is a React Native app for next-morning NBA fans. Discover the best games to watch on demand, with no scores or spoilers. Get personalized, spoil-free recommendations, advanced excitement ratings, instant highlights, and local time conversion for scheduled games—designed for basketball enthusiasts who want the story behind the score.
 
+If HeatCheckr has been useful to you and you’d like to support ongoing development, you can support me at buymeacoffee.com/jdkdevelopment. It helps keep the project running and the features coming for the basketball community. Thanks!
 
-## Features
+## ✨ Features
 
 - **Spoil-Free Recommendations:** See which games are worth watching, with no scores or spoilers revealed.
 - **Advanced Excitement Calculations:** Uses box scores, team standings, and historical context to rate each game’s watchability.
@@ -15,10 +16,11 @@ HeatCheckr is a React Native app for next-morning NBA fans. Discover the best ga
 - **Push Notifications:** Get alerted when a must-watch game happens.
 - **On-Demand Highlights:** Jump straight to NBA.com recaps.
 - **Fast Swipe Navigation:** Quickly swipe between days with snappy, responsive transitions.
-- **Local Time Conversion:** Scheduled game times are shown in your local timezone
+- **Local Time Conversion:** Scheduled game times are shown in your local timezone.
 
 
-## How It Works
+
+## 🧠 How It Works
 
 Behind the scenes, HeatCheckr crunches hundreds of data points from NBA box scores, team records, and player stats. It applies custom algorithms to:
 
@@ -28,7 +30,8 @@ Behind the scenes, HeatCheckr crunches hundreds of data points from NBA box scor
 - Assign dynamic labels for easy filtering and discovery.
 
 
-## Tech Stack
+
+## 🛠️ Tech Stack
 
 - React Native & Expo
 - TypeScript
@@ -37,11 +40,13 @@ Behind the scenes, HeatCheckr crunches hundreds of data points from NBA box scor
 - Custom excitement and label algorithms
 
 
-## Contributing
+
+## 🤝 Contributing
 
 If you have ideas for new labels, better excitement scoring, UI improvements, or new features, feel free to open an issue or PR.
 
 
-## License
+
+## 📄 License
 
 MIT
