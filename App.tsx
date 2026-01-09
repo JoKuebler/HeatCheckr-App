@@ -133,7 +133,7 @@ const convertETtoLocalTime = (etTimeStr: string, gamesDate: string): string => {
   return utcDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
 
-const LabelChip = ({ label }: { label: string }) => {
+const LabelChip = React.memo(({ label }: { label: string }) => {
   const text = LABEL_DISPLAY[label.toLowerCase()] || label;
   const category = categoryForLabel(label);
   const bg = LABEL_COLORS[category] || colors.chipBg;
@@ -142,9 +142,9 @@ const LabelChip = ({ label }: { label: string }) => {
       <Text style={styles.chipText}>{text}</Text>
     </View>
   );
-};
+});
 
-const TeamBadge = ({ abbreviation, name, confRank }: { abbreviation: string; name?: string; confRank?: number }) => {
+const TeamBadge = React.memo(({ abbreviation, name, confRank }: { abbreviation: string; name?: string; confRank?: number }) => {
   const { primary, secondary, text } = getTeamVisual(abbreviation);
   // SVG path from jersey.svg - modified with rounded bottom corners
   // Main jersey body (large area) with rounded bottom
@@ -223,7 +223,7 @@ const TeamBadge = ({ abbreviation, name, confRank }: { abbreviation: string; nam
       <View style={[styles.jerseyAccentLine, { backgroundColor: secondary }]} />
     </View>
   );
-};
+});
 
 
 const SettingsModal = ({ 
@@ -353,7 +353,7 @@ const SettingsModal = ({
   );
 };
 
-const GameCard = ({ game, gamesDate, onOpenHighlights, groupSettings, isVisible }: { game: Game; gamesDate: string; onOpenHighlights: (game: Game) => void; groupSettings: GroupSettings; isVisible: boolean }) => {
+const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings, isVisible }: { game: Game; gamesDate: string; onOpenHighlights: (game: Game) => void; groupSettings: GroupSettings; isVisible: boolean }) => {
   const home = game.home_team;
   const away = game.away_team;
   const isPending = game.status === 'pending';
@@ -414,7 +414,17 @@ const GameCard = ({ game, gamesDate, onOpenHighlights, groupSettings, isVisible 
       )}
     </View>
   );
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if game, gamesDate, or relevant groupSettings have changed
+  return (
+    prevProps.game.game_id === nextProps.game.game_id &&
+    prevProps.game.status === nextProps.game.status &&
+    prevProps.game.excitement_score === nextProps.game.excitement_score &&
+    prevProps.gamesDate === nextProps.gamesDate &&
+    prevProps.isVisible === nextProps.isVisible &&
+    JSON.stringify(prevProps.groupSettings) === JSON.stringify(nextProps.groupSettings)
+  );
+});
 
 export default function App() {
   // Pre-cached data for all 3 days: -1 (day before), 0 (yesterday), +1 (today/future)
@@ -761,6 +771,40 @@ export default function App() {
     kickerHeight,
     onScroll 
   } = useAnimatedHeader();
+
+  // Stable renderItem functions to prevent FlatList performance issues
+  const renderGameItem = useCallback(({ item }: { item: Game }) => (
+    <GameCard 
+      game={item} 
+      gamesDate={page0Data.date}
+      onOpenHighlights={openHighlights} 
+      groupSettings={groupSettings} 
+      isVisible={true}
+    />
+  ), [page0Data.date, groupSettings]);
+
+  const renderGameItem1 = useCallback(({ item }: { item: Game }) => (
+    <GameCard 
+      game={item} 
+      gamesDate={page1Data.date}
+      onOpenHighlights={openHighlights} 
+      groupSettings={groupSettings} 
+      isVisible={true}
+    />
+  ), [page1Data.date, groupSettings]);
+
+  const renderGameItem2 = useCallback(({ item }: { item: Game }) => (
+    <GameCard 
+      game={item} 
+      gamesDate={page2Data.date}
+      onOpenHighlights={openHighlights} 
+      groupSettings={groupSettings} 
+      isVisible={true}
+    />
+  ), [page2Data.date, groupSettings]);
+
+  // Memoized separator component
+  const ItemSeparator = useCallback(() => <View style={{ height: spacing.sm }} />, []);
   
   // Header component rendered outside FlatList for sticky behavior
   const renderHeader = () => {
@@ -868,16 +912,8 @@ export default function App() {
                   data={page0Data.games}
                   keyExtractor={(item) => item.game_id}
                   contentContainerStyle={styles.list}
-                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-                  renderItem={({ item }) => (
-                    <GameCard 
-                      game={item} 
-                      gamesDate={page0Data.date}
-                      onOpenHighlights={openHighlights} 
-                      groupSettings={groupSettings} 
-                      isVisible={true}
-                    />
-                  )}
+                  ItemSeparatorComponent={ItemSeparator}
+                  renderItem={renderGameItem}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
                   onScroll={currentPage === 0 ? onScroll : undefined}
                   scrollEventThrottle={16}
@@ -905,16 +941,8 @@ export default function App() {
                   data={page1Data.games}
                   keyExtractor={(item) => item.game_id}
                   contentContainerStyle={styles.list}
-                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-                  renderItem={({ item }) => (
-                    <GameCard 
-                      game={item} 
-                      gamesDate={page1Data.date}
-                      onOpenHighlights={openHighlights} 
-                      groupSettings={groupSettings} 
-                      isVisible={true}
-                    />
-                  )}
+                  ItemSeparatorComponent={ItemSeparator}
+                  renderItem={renderGameItem1}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
                   onScroll={currentPage === 1 ? onScroll : undefined}
                   scrollEventThrottle={16}
@@ -942,16 +970,8 @@ export default function App() {
                   data={page2Data.games}
                   keyExtractor={(item) => item.game_id}
                   contentContainerStyle={styles.list}
-                  ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-                  renderItem={({ item }) => (
-                    <GameCard 
-                      game={item} 
-                      gamesDate={page2Data.date}
-                      onOpenHighlights={openHighlights} 
-                      groupSettings={groupSettings} 
-                      isVisible={true}
-                    />
-                  )}
+                  ItemSeparatorComponent={ItemSeparator}
+                  renderItem={renderGameItem2}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
                   onScroll={currentPage === 2 ? onScroll : undefined}
                   scrollEventThrottle={16}
