@@ -761,10 +761,48 @@ export default function App() {
   // Get current dateOffset from page (page 0 = -1, page 1 = 0, page 2 = +1)
   const dateOffset = pageToOffset(currentPage);
 
-  // Get data for all 3 pages
-  const page0Data = gamesCache[-1] || { games: [], date: '' };
-  const page1Data = gamesCache[0] || { games: [], date: '' };
-  const page2Data = gamesCache[1] || { games: [], date: '' };
+  // Helper to parse game time and sort scheduled games by time (earliest first)
+  const sortGamesByTime = (games: Game[]): Game[] => {
+    return [...games].sort((a, b) => {
+      // If both are scheduled, sort by time
+      if (a.status === 'scheduled' && b.status === 'scheduled' && a.game_time && b.game_time) {
+        const timeA = parseGameTime(a.game_time);
+        const timeB = parseGameTime(b.game_time);
+        return timeA - timeB;
+      }
+      // Scheduled games after completed/pending games
+      if (a.status === 'scheduled' && b.status !== 'scheduled') return 1;
+      if (a.status !== 'scheduled' && b.status === 'scheduled') return -1;
+      // Otherwise maintain original order
+      return 0;
+    });
+  };
+
+  // Helper to parse time string like "7:00 pm ET" to minutes since midnight
+  const parseGameTime = (timeStr: string): number => {
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*([ap]m)/i);
+    if (!match) return 0;
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    const ampm = match[3].toLowerCase();
+    if (ampm === 'pm' && hour !== 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+    return hour * 60 + minute;
+  };
+
+  // Get data for all 3 pages and sort scheduled games
+  const page0Data = { 
+    ...(gamesCache[-1] || { games: [], date: '' }),
+    games: sortGamesByTime((gamesCache[-1] || { games: [], date: '' }).games)
+  };
+  const page1Data = { 
+    ...(gamesCache[0] || { games: [], date: '' }),
+    games: sortGamesByTime((gamesCache[0] || { games: [], date: '' }).games)
+  };
+  const page2Data = { 
+    ...(gamesCache[1] || { games: [], date: '' }),
+    games: sortGamesByTime((gamesCache[1] || { games: [], date: '' }).games)
+  };
   
   // Current page data for header
   const currentData = gamesCache[dateOffset] || { games: [], date: '' };
