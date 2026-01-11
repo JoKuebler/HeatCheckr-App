@@ -762,6 +762,7 @@ export default function App() {
   const dateOffset = pageToOffset(currentPage);
 
   // Helper to parse game time and sort scheduled games by time (earliest first)
+  // Also sorts completed/pending games by excitement score (highest first)
   const sortGamesByTime = (games: Game[]): Game[] => {
     return [...games].sort((a, b) => {
       // If both are scheduled, sort by time
@@ -773,8 +774,10 @@ export default function App() {
       // Scheduled games after completed/pending games
       if (a.status === 'scheduled' && b.status !== 'scheduled') return 1;
       if (a.status !== 'scheduled' && b.status === 'scheduled') return -1;
-      // Otherwise maintain original order
-      return 0;
+      // If both are completed/pending, sort by excitement score (highest first)
+      const scoreA = a.excitement_score ?? 0;
+      const scoreB = b.excitement_score ?? 0;
+      return scoreB - scoreA;
     });
   };
 
