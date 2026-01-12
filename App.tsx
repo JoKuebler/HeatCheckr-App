@@ -16,7 +16,6 @@ import {
   SCORE_BORDERS,
   SCORE_EMOJIS,
   LABEL_PATTERNS,
-  LABEL_DISPLAY,
   API_BASE,
   CACHE_KEY,
   HIGHLIGHT_WARNING_KEY,
@@ -134,11 +133,11 @@ const convertETtoLocalTime = (etTimeStr: string, gamesDate: string): string => {
 };
 
 const LabelChip = React.memo(({ label }: { label: string }) => {
-  const text = LABEL_DISPLAY[label.toLowerCase()] || label;
+  const text = label || '🍔 Nothing Burger';
   const category = categoryForLabel(label);
   const bg = LABEL_COLORS[category] || colors.chipBg;
   return (
-    <View style={[styles.chip, { backgroundColor: bg }]}>
+    <View style={[styles.chip, { backgroundColor: bg }]}> 
       <Text style={styles.chipText}>{text}</Text>
     </View>
   );
