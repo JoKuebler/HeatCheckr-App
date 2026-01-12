@@ -1,7 +1,8 @@
 export const SUPPORT_URL = 'https://jokuebler.github.io/heatcheckr-support/';
 import { colors } from './theme';
+import Constants from 'expo-constants';
 
-export const API_BASE = 'https://app-production-2fb0.up.railway.app/api/games';
+export const API_BASE = Constants.expoConfig?.extra?.apiBase || 'https://app-production-2fb0.up.railway.app/api/games';
 export const CACHE_KEY = 'games_cache_latest';
 export const HIGHLIGHT_WARNING_KEY = 'highlight_warning_seen_v1';
 export const SETTINGS_KEY = 'label_group_settings_v1';
