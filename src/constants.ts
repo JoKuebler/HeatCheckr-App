@@ -63,7 +63,7 @@ export const SCORE_EMOJIS: [number, string][] = [
 
 export const LABEL_PATTERNS: [RegExp, keyof typeof LABEL_COLORS][] = [
   [/instant classic|matchup|bout|tank bowl/i, 'matchup'],
-  [/back & forth|down to the wire|nail biter|q4 comeback|comeback|hot start|game winner|clutch stop/i, 'flow'],
+  [/back & forth|down to the wire|photo finish|q4 comeback|comeback|hot start|game winner|clutch stop/i, 'flow'],
   [/shootout|high octane|glass cleaner|assist symphony/i, 'teamStats'],
   [/triple double|scoring explosion|sniper|pickpocket|block party/i, 'player'],
   [/defensive|chaos|brick|free throw parade/i, 'defense'],
