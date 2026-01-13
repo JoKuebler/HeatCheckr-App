@@ -47,6 +47,16 @@ export function categoryForLabel(label: string): GroupKey {
 
 const formatDate = (iso: string) => {
   if (!iso) return '';
+  // Parse YYYY-MM-DD directly to avoid timezone issues
+  const parts = iso.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts.map(Number);
+    const d = new Date(year, month - 1, day); // Local timezone
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }
+  // Fallback for other date formats
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
