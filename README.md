@@ -9,13 +9,26 @@
          alt="Download on the App Store"
          height="60">
   </a>
+
+  <div align="center">
+</div>
+
 </div>
 
 ## ℹ️ About
 
 HeatCheckr is a React Native app for next-morning NBA fans. Discover the best games to watch on demand, with no scores or spoilers. Get personalized, spoil-free recommendations, advanced excitement ratings, instant highlights, and local time conversion for scheduled games—designed for basketball enthusiasts who want the story behind the score.
 
-If HeatCheckr has been useful to you and you’d like to support ongoing development, you can support me at buymeacoffee.com/jdkdevelopment. It helps keep the project running and the features coming for the basketball community. Thanks!
+If HeatCheckr has been useful to you and you’d like to support ongoing development, feel free to buy me a coffee. It helps keep the project running and the features coming for the basketball community. Thanks!
+
+<div align="center">
+<a href="https://www.buymeacoffee.com/jdkdevelopment" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" 
+       alt="Buy Me a Coffee" 
+       height="60" />
+</a>
+<br>
+</div>
 
 ## ✨ Features
 
