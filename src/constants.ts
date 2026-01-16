@@ -6,6 +6,7 @@ export const API_BASE = Constants.expoConfig?.extra?.apiBase || 'https://app-pro
 export const CACHE_KEY = 'games_cache_latest';
 export const HIGHLIGHT_WARNING_KEY = 'highlight_warning_seen_v1';
 export const SETTINGS_KEY = 'label_group_settings_v1';
+export const ONBOARDING_KEY = 'onboarding_completed_v1';
 
 export const BEHIND_THE_SCENES_URL = 'https://jokuebler.github.io/heatcheckr-support/';
 
@@ -64,9 +65,9 @@ export const SCORE_EMOJIS: [number, string][] = [
 
 export const LABEL_PATTERNS: [RegExp, keyof typeof LABEL_COLORS][] = [
   [/instant classic|matchup|bout|playoff race|tank bowl/i, 'matchup'],
-  [/back & forth|down to the wire|photo finish|q4 comeback|comeback|hot start|game winner|clutch stop|late r(un|ally)/i, 'flow'],
+  [/back & forth|down to the wire|photo finish|q4 comeback|comeback|hot start|late r(un|ally)/i, 'flow'],
   [/shootout|high octane|glass cleaner|assist symphony/i, 'teamStats'],
-  [/triple double|scoring explosion|sniper|pickpocket|block party/i, 'player'],
+  [/triple double|scoring explosion|sniper|pickpocket|block party|clutch stop|game winner|/i, 'player'],
   [/defensive|chaos|brick|free throw parade/i, 'defense'],
   [/double ot|triple ot|heartbreaker|marathon|epic|free flowing/i, 'rare'],
   [/easy win|blowout|nothing burger/i, 'meta'],

@@ -23,6 +23,7 @@ import {
   BEHIND_THE_SCENES_URL,
   SUPPORT_URL
 } from './src/constants';
+import OnboardingTour, { TourTargets } from './src/components/OnboardingTour';
 import {
   enablePushNotifications,
   disablePushNotifications,
@@ -362,7 +363,17 @@ const SettingsModal = ({
   );
 };
 
-const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings, isVisible }: { game: Game; gamesDate: string; onOpenHighlights: (game: Game) => void; groupSettings: GroupSettings; isVisible: boolean }) => {
+interface GameCardProps {
+  game: Game;
+  gamesDate: string;
+  onOpenHighlights: (game: Game) => void;
+  groupSettings: GroupSettings;
+  isVisible: boolean;
+  onMeasureScore?: (layout: { x: number; y: number; width: number; height: number }) => void;
+  onMeasureLabels?: (layout: { x: number; y: number; width: number; height: number }) => void;
+}
+
+const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings, isVisible, onMeasureScore, onMeasureLabels }: GameCardProps) => {
   const home = game.home_team;
   const away = game.away_team;
   const isPending = game.status === 'pending';
@@ -375,6 +386,22 @@ const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings,
     const category = categoryForLabel(label);
     return groupSettings[category];
   });
+
+  const handleScoreLayout = (event: any) => {
+    if (onMeasureScore) {
+      event.target.measureInWindow((x: number, y: number, width: number, height: number) => {
+        onMeasureScore({ x, y, width, height });
+      });
+    }
+  };
+
+  const handleLabelsLayout = (event: any) => {
+    if (onMeasureLabels) {
+      event.target.measureInWindow((x: number, y: number, width: number, height: number) => {
+        onMeasureLabels({ x, y, width, height });
+      });
+    }
+  };
 
   return (
     <View style={[styles.card, (isPending || isScheduled) && styles.cardPending]}>
@@ -399,7 +426,7 @@ const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings,
           <Text style={styles.highlightsLinkText}>▶︎ Watch Highlights</Text>
         </Pressable>
       )}
-      <View style={styles.metaRow}>
+      <View style={styles.metaRow} onLayout={handleScoreLayout}>
         {isScheduled && game.game_time ? (
           <View style={styles.gameTimePill}>
             <Text style={styles.gameTimeText}>🕐 {convertETtoLocalTime(game.game_time, gamesDate)}</Text>
@@ -409,7 +436,7 @@ const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings,
         )}
       </View>
       {!isPending && !isScheduled && visibleLabels.length > 0 && (
-        <View style={styles.labelsWrap}>
+        <View style={styles.labelsWrap} onLayout={handleLabelsLayout}>
           {[...visibleLabels]
             .sort((a, b) => {
               const ca = categoryForLabel(a);
@@ -425,13 +452,16 @@ const GameCard = React.memo(({ game, gamesDate, onOpenHighlights, groupSettings,
   );
 }, (prevProps, nextProps) => {
   // Only re-render if game, gamesDate, or relevant groupSettings have changed
+  // Skip comparing measurement callbacks since they shouldn't trigger re-renders
   return (
     prevProps.game.game_id === nextProps.game.game_id &&
     prevProps.game.status === nextProps.game.status &&
     prevProps.game.excitement_score === nextProps.game.excitement_score &&
     prevProps.gamesDate === nextProps.gamesDate &&
     prevProps.isVisible === nextProps.isVisible &&
-    JSON.stringify(prevProps.groupSettings) === JSON.stringify(nextProps.groupSettings)
+    JSON.stringify(prevProps.groupSettings) === JSON.stringify(nextProps.groupSettings) &&
+    !!prevProps.onMeasureScore === !!nextProps.onMeasureScore &&
+    !!prevProps.onMeasureLabels === !!nextProps.onMeasureLabels
   );
 });
 
@@ -451,6 +481,9 @@ export default function App() {
   const [groupSettings, setGroupSettings] = useState<GroupSettings>(DEFAULT_SETTINGS);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
   const [notificationsSupported, setNotificationsSupported] = useState<boolean>(false);
+  
+  // Onboarding tour targets (measured positions of UI elements)
+  const [tourTargets, setTourTargets] = useState<TourTargets>({});
   
   // Current page index: 0 = yesterday, 1 = today (default), 2 = tomorrow
   // Maps to offsets: pageIndex 0 = offset -1, pageIndex 1 = offset 0, pageIndex 2 = offset +1
@@ -833,8 +866,25 @@ export default function App() {
     onScroll 
   } = useAnimatedHeader();
 
+  // Track whether we've already measured the first card for the tour
+  const hasMeasuredFirstCard = useRef(false);
+
+  // Measurement callbacks for first game card (used for onboarding tour)
+  const handleMeasureScore = useCallback((layout: { x: number; y: number; width: number; height: number }) => {
+    if (!hasMeasuredFirstCard.current) {
+      setTourTargets(prev => ({ ...prev, scorePill: layout }));
+    }
+  }, []);
+
+  const handleMeasureLabels = useCallback((layout: { x: number; y: number; width: number; height: number }) => {
+    if (!hasMeasuredFirstCard.current) {
+      setTourTargets(prev => ({ ...prev, labels: layout }));
+      hasMeasuredFirstCard.current = true;
+    }
+  }, []);
+
   // Stable renderItem functions to prevent FlatList performance issues
-  const renderGameItem = useCallback(({ item }: { item: Game }) => (
+  const renderGameItem = useCallback(({ item, index }: { item: Game; index: number }) => (
     <GameCard 
       game={item} 
       gamesDate={page0Data.date}
@@ -844,15 +894,20 @@ export default function App() {
     />
   ), [page0Data.date, groupSettings]);
 
-  const renderGameItem1 = useCallback(({ item }: { item: Game }) => (
-    <GameCard 
-      game={item} 
-      gamesDate={page1Data.date}
-      onOpenHighlights={openHighlights} 
-      groupSettings={groupSettings} 
-      isVisible={true}
-    />
-  ), [page1Data.date, groupSettings]);
+  const renderGameItem1 = useCallback(({ item, index }: { item: Game; index: number }) => {
+    const isFirstCard = index === 0 && !hasMeasuredFirstCard.current;
+    return (
+      <GameCard 
+        game={item} 
+        gamesDate={page1Data.date}
+        onOpenHighlights={openHighlights} 
+        groupSettings={groupSettings} 
+        isVisible={true}
+        onMeasureScore={isFirstCard ? handleMeasureScore : undefined}
+        onMeasureLabels={isFirstCard ? handleMeasureLabels : undefined}
+      />
+    );
+  }, [page1Data.date, groupSettings, handleMeasureScore, handleMeasureLabels]);
 
   const renderGameItem2 = useCallback(({ item }: { item: Game }) => (
     <GameCard 
@@ -867,6 +922,49 @@ export default function App() {
   // Memoized separator component
   const ItemSeparator = useCallback(() => <View style={{ height: spacing.sm }} />, []);
   
+  // Refs for measuring tour targets
+  const dateNavRef = useRef<View>(null);
+  const settingsButtonRef = useRef<View>(null);
+  
+  // Measure layout for tour targets
+  const measureDateNavigation = () => {
+    // Small delay to ensure layout is finalized
+    setTimeout(() => {
+      dateNavRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+        if (width > 0 && height > 0) {
+          setTourTargets(prev => ({
+            ...prev,
+            dateNavigation: { x, y, width, height },
+          }));
+        }
+      });
+    }, 100);
+  };
+
+  const measureSettingsButton = () => {
+    // Small delay to ensure layout is finalized
+    setTimeout(() => {
+      settingsButtonRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+        if (width > 0 && height > 0) {
+          setTourTargets(prev => ({
+            ...prev,
+            settingsButton: { x, y, width, height },
+          }));
+        }
+      });
+    }, 100);
+  };
+
+  // Handler when onboarding is complete
+  const handleOnboardingComplete = () => {
+    // Tour finished, nothing special needed
+  };
+
+  // Handler when notifications enabled via tour
+  const handleTourNotificationsEnabled = () => {
+    setNotificationsEnabled(true);
+  };
+
   // Header component rendered outside FlatList for sticky behavior
   const renderHeader = () => {
     const displayDate = gamesDate || getDateForOffset(dateOffset);
@@ -894,7 +992,7 @@ export default function App() {
             ]}>‹</Text>
           </Pressable>
           
-          <View style={styles.headerTitleCenter}>
+          <View ref={dateNavRef} style={styles.headerTitleCenter} onLayout={measureDateNavigation}>
             <Animated.Text style={[
               styles.headerKicker, 
               { 
@@ -925,7 +1023,12 @@ export default function App() {
             ]}>›</Text>
           </Pressable>
           
-          <Pressable onPress={() => setSettingsVisible(true)} style={styles.settingsButton}>
+          <Pressable 
+            ref={settingsButtonRef}
+            onPress={() => setSettingsVisible(true)} 
+            style={styles.settingsButton}
+            onLayout={measureSettingsButton}
+          >
             <View style={styles.settingsIcon}>
               <View style={styles.settingsBar} />
               <View style={styles.settingsBar} />
@@ -949,6 +1052,12 @@ export default function App() {
           notificationsEnabled={notificationsEnabled}
           notificationsSupported={notificationsSupported}
           onToggleNotifications={handleToggleNotifications}
+        />
+        {/* Onboarding Tour */}
+        <OnboardingTour
+          targets={tourTargets}
+          onComplete={handleOnboardingComplete}
+          onNotificationsEnabled={handleTourNotificationsEnabled}
         />
         {/* Sticky Header */}
         {renderHeader()}
