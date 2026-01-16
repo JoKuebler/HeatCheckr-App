@@ -1,5 +1,15 @@
+<div align="center">
+  <img src="assets/images/icon-rounded.png"
+       alt="App Logo"
+       width="250" />
 
-# 🏀 HeatCheckr 
+  <br>
+  <a href="https://apps.apple.com/app/heatcheckr/id6757223698">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+         alt="Download on the App Store"
+         height="60">
+  </a>
+</div>
 
 ## ℹ️ About
 
