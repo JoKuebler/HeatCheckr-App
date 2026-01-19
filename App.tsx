@@ -241,6 +241,8 @@ const SettingsModal = ({
   onClose, 
   settings, 
   onToggle,
+  legendVisible,
+  onToggleLegend,
   notificationsEnabled,
   notificationsSupported,
   onToggleNotifications,
@@ -249,6 +251,8 @@ const SettingsModal = ({
   onClose: () => void; 
   settings: GroupSettings;
   onToggle: (key: GroupKey) => void;
+  legendVisible: boolean;
+  onToggleLegend: () => void;
   notificationsEnabled: boolean;
   notificationsSupported: boolean;
   onToggleNotifications: () => void;
@@ -286,7 +290,7 @@ const SettingsModal = ({
             </Pressable>
           </View>
           
-          <Text style={styles.sectionTitle}>Label Groups</Text>
+          <Text style={styles.sectionTitle}>Hide Labels</Text>
           <Text style={styles.sectionSubtitle}>Toggle which label categories to show</Text>
           
           {LEGEND.map((item) => (
@@ -313,17 +317,29 @@ const SettingsModal = ({
               <Text style={styles.notificationIcon}>🔔</Text>
               <View>
                 <Text style={styles.settingLabel}>Morning Alert</Text>
-                <Text style={styles.notificationSubtext}>
-                  {notificationsSupported 
-                    ? 'One daily notification'
-                    : 'Requires a physical device'}
-                </Text>
               </View>
             </View>
             <Switch
               value={notificationsEnabled}
               onValueChange={onToggleNotifications}
               disabled={!notificationsSupported}
+              trackColor={{ false: colors.border, true: colors.accentFlow }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
+
+          {/* Display Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Display</Text>
+          <Text style={styles.sectionSubtitle}>Customize what you see</Text>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingLabelRow}>
+              <Text style={styles.notificationIcon}>📋</Text>
+              <Text style={styles.settingLabel}>Hide Legend</Text>
+            </View>
+            <Switch
+              value={!legendVisible}
+              onValueChange={onToggleLegend}
               trackColor={{ false: colors.border, true: colors.accentFlow }}
               thumbColor={colors.textPrimary}
             />
@@ -479,6 +495,7 @@ export default function App() {
   const [hasSeenHighlightWarning, setHasSeenHighlightWarning] = useState<boolean>(false);
   const [settingsVisible, setSettingsVisible] = useState<boolean>(false);
   const [groupSettings, setGroupSettings] = useState<GroupSettings>(DEFAULT_SETTINGS);
+  const [legendVisible, setLegendVisible] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
   const [notificationsSupported, setNotificationsSupported] = useState<boolean>(false);
   
@@ -544,6 +561,10 @@ export default function App() {
       if (saved) {
         setGroupSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
       }
+      const legendVisibleSaved = await AsyncStorage.getItem('legend_visible');
+      if (legendVisibleSaved !== null) {
+        setLegendVisible(JSON.parse(legendVisibleSaved));
+      }
     } catch (e) {
       // ignore storage errors
     }
@@ -561,6 +582,12 @@ export default function App() {
     const newSettings = { ...groupSettings, [key]: !groupSettings[key] };
     setGroupSettings(newSettings);
     saveSettings(newSettings);
+  };
+
+  const toggleLegendVisibility = async () => {
+    const newValue = !legendVisible;
+    setLegendVisible(newValue);
+    await AsyncStorage.setItem('legend_visible', JSON.stringify(newValue));
   };
 
   const loadFromCache = async () => {
@@ -1036,6 +1063,18 @@ export default function App() {
             </View>
           </Pressable>
         </View>
+        
+        {/* Legend - only show on past games and today view, not on scheduled games */}
+        {legendVisible && currentPage < 2 && (
+          <View style={styles.legendHeader}>
+            {visibleLegend.map((item) => (
+              <View key={item.name} style={styles.legendRow}>
+                <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
+                <Text style={styles.legendName}>{item.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </Animated.View>
     );
   };
@@ -1049,6 +1088,8 @@ export default function App() {
           onClose={() => setSettingsVisible(false)}
           settings={groupSettings}
           onToggle={toggleGroup}
+          legendVisible={legendVisible}
+          onToggleLegend={toggleLegendVisibility}
           notificationsEnabled={notificationsEnabled}
           notificationsSupported={notificationsSupported}
           onToggleNotifications={handleToggleNotifications}
@@ -1092,16 +1133,6 @@ export default function App() {
                       <Text style={styles.loadingText}>No games found</Text>
                     </View>
                   }
-                  ListFooterComponent={
-                    <View style={styles.legendWrap}>
-                      {visibleLegend.map((item) => (
-                        <View key={item.name} style={styles.legendRow}>
-                          <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-                          <Text style={styles.legendName}>{item.name}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  }
                 />
               </View>
               
@@ -1119,16 +1150,6 @@ export default function App() {
                   ListEmptyComponent={
                     <View style={styles.center}>
                       <Text style={styles.loadingText}>{error || 'No games found'}</Text>
-                    </View>
-                  }
-                  ListFooterComponent={
-                    <View style={styles.legendWrap}>
-                      {visibleLegend.map((item) => (
-                        <View key={item.name} style={styles.legendRow}>
-                          <View style={[styles.legendSwatch, { backgroundColor: item.color }]} />
-                          <Text style={styles.legendName}>{item.name}</Text>
-                        </View>
-                      ))}
                     </View>
                   }
                 />
@@ -1325,20 +1346,34 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     gap: spacing.sm,
   },
+  legendHeader: {
+    marginTop: spacing.md,
+    marginBottom: 0,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.xs,
+  },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    width: '48%',
+    marginBottom: 0,
   },
   legendSwatch: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   legendName: {
     color: colors.textSecondary,
     fontWeight: '600',
     fontSize: fonts.label,
+    opacity: 0.7,
   },
   metaRow: {
     flexDirection: 'row',
@@ -1410,14 +1445,14 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: colors.textSecondary,
     fontSize: fonts.label,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderBottomColor: colors.border,
   },
   settingLabelRow: {
