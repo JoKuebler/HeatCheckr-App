@@ -696,10 +696,10 @@ export default function App() {
   const animateToPage = useCallback((targetPage: number) => {
     if (targetPage < 0 || targetPage >= TOTAL_PAGES || isAnimating.current) return;
     if (targetPage === currentPage) return;
-    
+    // Update page state immediately for responsive header/legend
+    setCurrentPage(targetPage);
     isAnimating.current = true;
     const targetX = -targetPage * screenWidth;
-    
     Animated.spring(scrollX, {
       toValue: targetX,
       useNativeDriver: true,
@@ -707,7 +707,6 @@ export default function App() {
       tension: 180, // Higher tension for snappier response
     }).start(() => {
       isAnimating.current = false;
-      setCurrentPage(targetPage);
     });
   }, [currentPage, screenWidth, scrollX]);
 
@@ -1311,7 +1310,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#000',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingVertical: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1347,33 +1346,34 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   legendHeader: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     marginBottom: 0,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
     paddingBottom: 0,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.xs,
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    width: '48%',
-    marginBottom: 0,
+    marginHorizontal: 6,
   },
   legendSwatch: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 4,
   },
   legendName: {
     color: colors.textSecondary,
-    fontWeight: '600',
-    fontSize: fonts.label,
+    fontWeight: '500',
+    fontSize: 10,
     opacity: 0.7,
+    letterSpacing: 0.2,
   },
   metaRow: {
     flexDirection: 'row',
